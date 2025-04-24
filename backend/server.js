@@ -18,6 +18,39 @@ app.use(cors()); // cors is a middleware that allows cross-origin requests
 app.use(helmet()); // helmet is a security middleware that helps secure the app by setting various HTTP headers
 app.use(morgan("dev")); // morgan is a logging middleware that logs the requests to the console
 
+// apply arcjet rate limiting middleware for all routes
+app.use(async (req, res, next) => {
+  try {
+    const decision = await aj.protect(req, {
+      requested: 1, // specifies that each request consumes 1 token
+    });
+    if (decision.isDenied()) {
+      if (decision.reason.isRateLimit()) {
+        res.status(429).json({ error: "Too Many Requests" });
+      } else if (decision.reason.isBot()) {
+        res.status(403).json({ error: "Bot access denied" });
+      } else {
+        res.status(403).json({ error: "Forbidden" });
+      }
+      return;
+    }
+
+    // check for spoofed bots
+    if (
+      decision.results.some(
+        (result) => result.reason.isBot() && result.reason.isSpoofed()
+      )
+    ) {
+      res.status(403).json({ error: "Spoofed bot detected" });
+      return;
+    }
+    next();
+  } catch (error) {
+    console.log("Error in arcjet rate limiting middleware:", error);
+    next(error);
+  }
+});
+
 // routes
 app.use("/api/products", productRoutes);
 

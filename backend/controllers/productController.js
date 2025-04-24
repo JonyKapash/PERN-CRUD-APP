@@ -22,7 +22,7 @@ export const createProduct = async (req, res) => {
 
   try {
     const newProduct =
-      await sql`INSERT INTO products (name, image, price) VALUES (${name}, ${image}, ${price})`;
+      await sql`INSERT INTO products (name, image, price) VALUES (${name}, ${image}, ${price}) RETURNING *`;
 
     res.status(201).json({ success: true, data: newProduct[0] });
   } catch (error) {
